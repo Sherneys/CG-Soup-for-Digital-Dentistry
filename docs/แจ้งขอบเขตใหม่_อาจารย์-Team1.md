@@ -1,49 +1,90 @@
-# ร่างข้อความแจ้งอาจารย์ + Team 1: ปรับขอบเขต CG-Soup เป็น "ใบหน้าทั้งหน้า"
+# แจ้งขอบเขตโครงการที่ปรับปรุง — Team 4 (CP-2026-A4)
 
-> ร่างวันที่ 11 มิ.ย. 2569 — ปรับแก้ตามสไตล์ตัวเองก่อนส่งทางอีเมล/แชทกลุ่ม
-> จุดประสงค์: ให้การแก้ขอบเขตเป็น **ลายลักษณ์อักษร** กัน KPI/การตรวจรับเพี้ยนตอนปลายเทอม
-
----
-
-## ส่วนที่ 1 — ข้อความแจ้งขอบเขต (ส่งถึงอาจารย์ที่ปรึกษา + Team 1)
-
-เรียนอาจารย์และทีม
-
-ขอแจ้งการปรับขอบเขตของส่วน CG-Soup ให้ตรงกับความเข้าใจร่วมล่าสุด ดังนี้
-
-**สิ่งที่เปลี่ยน:** CG-Soup จะสร้างโมเดล 3 มิติของ **ใบหน้าทั้งหน้า (extra-oral)** ไม่ใช่โมเดลฟัน/ช่องปากตามที่เขียนในข้อเสนอโครงการเดิม
-
-- บริเวณที่จัดสรรสามเหลี่ยมถี่ (ความโค้งสูง): จมูก ริมฝีปาก หู ขอบตา คาง (เดิมเขียน: ปุ่มฟัน ขอบฟัน ขอบครอบฟัน)
-- บริเวณสามเหลี่ยมห่าง (ผิวราบ): แก้ม หน้าผาก (เดิมเขียน: เหงือก เพดานปาก)
-- ข้อมูลฟันและเหงือกจะมาจาก **Intraoral Scan (IOS) ของคลินิกเท่านั้น** ไม่ได้สร้างจาก CG-Soup
-
-**สิ่งที่ไม่เปลี่ยน:** สถาปัตยกรรม DiffSoup + curvature-guided initialization, เป้า < 5,000 สามเหลี่ยม, Jaw Tracking ด้วย iPhone TrueDepth + FreeMoCap, การส่งออก CI-TRANSFORM เข้า Exocad / ระบบของ Team 1 และ timeline 14 สัปดาห์เดิม
-
-**เหตุผล/ผลที่ตามมา:**
-1. โมเดลหน้าจาก CG-Soup ทำหน้าที่เป็นพื้นผิวอ้างอิงที่ jaw motion ไปซ้อนทับ และเป็นตัวเชื่อม (registration) กับ intraoral scan
-2. ชุดข้อมูลที่ต้องเก็บเปลี่ยนเป็น "ภาพหลายมุมของใบหน้า" ซึ่งถ่ายง่ายกว่าและไม่ต้องใช้อุปกรณ์ intra-oral
-3. นิยามความแม่นยำจะเน้นบริเวณรอบปาก/คาง (โซนที่ขากรรไกรขยับ) แทนผิวฟัน
-
-จะขอแก้ไขเอกสารข้อเสนอโครงการ (`CG-Soup_Jaw-Tracking_ข้อเสนอโครงการรวม.md`) ให้สอดคล้องตามนี้ หากอาจารย์/ทีมเห็นต่างหรือมีข้อกังวล รบกวนแจ้งกลับภายในสัปดาห์นี้ครับ/ค่ะ
-
-**ความคืบหน้า Sprint S1 แนบมาด้วย:** โมดูลวิเคราะห์ความโค้ง (principal curvatures + QEM) และ Density Map เสร็จแล้ว ทดสอบบน head mesh สาธารณะ 2 ชุด ผลตรงตามคาด — จมูก/ริมฝีปาก/หู/ขอบตาได้ความหนาแน่นสูง แก้ม/หน้าผากได้ความหนาแน่นต่ำ (ดูภาพแนบ `output/max-planck_density.png`, `output/igea_density.png`)
+**ถึง:** รศ.ดร.พิษณุ คนองชัยยศ (ที่ปรึกษา) + Team 1
+**จาก:** Team 4 (CP-2026-A4)
+**วันที่:** 11 มิถุนายน 2569
+**เรื่อง:** ยืนยันขอบเขตโครงการ CG-Soup + JawTrack และแจ้งการตัดสินใจสำคัญด้านเทคนิค
 
 ---
 
-## ส่วนที่ 2 — ประเด็น API contract ที่ต้องตกลงกับ Team 1 (เริ่มคุยตั้งแต่ตอนนี้ อย่ารอ S5)
+## 1. ขอบเขตที่ยืนยันแล้ว (Confirmed Scope)
 
-1. **Zero Jaw Position** — ใครเป็นคนนิยาม ใช้ท่าไหน (centric occlusion? rest position?) และเก็บ ณ เวลาใดของ workflow
-2. **ระบบพิกัดอ้างอิงกลาง** — ตกลงว่า frame หลักคือของ intraoral scan, CBCT หรือโมเดลหน้า และหน่วย (มม.) + handedness
-3. **Landmark ที่ใช้ registration หน้า ↔ ฟัน** — หน้า (extra-oral) กับ intraoral scan แทบไม่มีพื้นผิวซ้อนกัน เสนอใช้ชุดภาพ "ยิ้มเห็นฟัน" หรือ bite jig เป็นสะพาน → Team 1 รับรูปแบบไหนได้
-4. **รูปแบบ CI-TRANSFORM** — JSON หรือ XML, schema ของ transformation matrix (4×4? quaternion+translation?), timestamp/frame rate ของ motion stream
-5. **ช่องทางรับส่ง** — ไฟล์, REST API หรือ socket; เวอร์ชัน Exocad ที่คลินิกใช้รับ import แบบใด
-6. **ข้อมูลทดสอบร่วม** — ขอ sample intraoral scan (STL/PLY บน+ล่าง+bite) จาก Team 1 หรือคลินิก 1 ชุด เพื่อใช้พัฒนา registration ก่อนถึง S5
+หลังจากศึกษาวิธีการทางเทคนิค เยี่ยมชมคลินิก และทดสอบเบื้องต้น Team 4 ขอยืนยันขอบเขตโครงการดังนี้:
+
+### Track A — CG-Soup (ใบหน้า Extra-Oral)
+- **สิ่งที่ทำ:** สร้างแบบจำลองสามมิติของ **ใบหน้าทั้งหน้า (extra-oral)** จากภาพถ่ายหลายมุมขณะยิ้มเห็นฟัน โดยใช้วิธี Curvature-Guided Neural Triangle Soup ต่อยอดจาก DiffSoup (CVPR 2026)
+- **ขอบเขตชัดเจน:** ภายนอกช่องปาก (extra-oral) — จมูก ริมฝีปาก ใบหน้าทั้งหน้า
+- **ผลลัพธ์:** แบบจำลอง < 5,000 สามเหลี่ยม
+
+### Track B — JawTrack (Marker-Based)
+- **สิ่งที่ทำ:** วัดการเคลื่อนไหวขากรรไกร 6DOF ด้วย **Fiducial Dot Markers** ที่ติดบนฟัน
+- **วิธีการ:** Intraoral Scan WITH Markers (SHINING 3D) + iPhone TrueDepth + SVD-based Rigid Body Estimation
+- **การตัดสินใจสำคัญ:** ใช้ Physical Markers ไม่ใช่ Software Landmarks หรือ FreeMoCap Skeleton
+
+### Track C — Integration
+- Register ข้อมูลทั้งสอง Track → ส่งออก CI-TRANSFORM (JSON/XML) → Exocad / Team 1 API
 
 ---
 
-## เช็คลิสต์หลังส่งข้อความ
+## 2. การตัดสินใจทางเทคนิค: ทำไมถึงใช้ Physical Fiducial Markers
 
-- [ ] ส่งข้อความส่วนที่ 1 ถึงอาจารย์ + Team 1 (อีเมล เพื่อให้เป็นลายลักษณ์อักษร)
-- [ ] ได้รับการยืนยันกลับ (เก็บหลักฐาน)
-- [ ] แก้ `CG-Soup_Jaw-Tracking_ข้อเสนอโครงการรวม.md` ทุกจุดที่เขียนว่า "ฟัน" → "ใบหน้า" (ไฟล์ไม่อยู่ในเครื่องนี้ — อยู่ที่ไหนต้องตามหา)
-- [ ] นัดคุย API contract (ส่วนที่ 2) กับ Team 1 ภายใน S2
+เหตุผลที่เลือกใช้ Physical Markers แทน FreeMoCap หรือ Software Landmarks:
+
+| ปัจจัย | Physical Markers | FreeMoCap / Software Landmarks |
+|---|---|---|
+| **Scale Accuracy** | ไม่มีปัญหา — Intraoral Scanner มี Absolute Scale | ต้องแก้ Scale Ambiguity (ซับซ้อน) |
+| **Coordinate Bridge** | Markers อยู่ใน Intraoral Scan = ใน Dental Frame ทันที | ต้องหาวิธี register ฟันกับใบหน้า |
+| **Clinical Setting** | ใช้ได้จริงในคลินิก ไม่ต้องติด Sensor บนผิวหนัง | ยาก ถ้าผู้ป่วยขยับ |
+| **RMSE Target** | ≤ 0.5 mm ทำได้ | ไม่แน่ใจ |
+| **Hardware** | iPhone TrueDepth + SHINING 3D (มีอยู่แล้ว) | ต้องการ Camera Setup เพิ่ม |
+
+---
+
+## 3. สิ่งที่จำเป็นต้องทราบจากการเยี่ยมคลินิก
+
+วันที่ 11 มิถุนายน 2569 — เยี่ยมคลินิกพร้อมอุปกรณ์ SHINING 3D Scanner ครบ
+
+**ได้รับ:**
+- Intraoral Scan (STL/OBJ) ✅
+- วิดีโอขากรรไกร (iPhone) ✅
+
+**ต้องตรวจสอบ:**
+- ❓ Intraoral Scan มี Fiducial Dot Markers ติดอยู่หรือไม่?
+  - ถ้ามี → เดินหน้า Track B ได้เลย
+  - ถ้าไม่มี → ต้องนัดสแกนใหม่โดยติด Markers ก่อน (prerequisite ของ Sprint S4)
+
+---
+
+## 4. คำถามสำหรับ Team 1 (API Contract — ต้องการก่อน Sprint S5)
+
+เพื่อออกแบบ CI-TRANSFORM Export และ Registration ให้ถูกต้อง Team 4 ต้องการ Spec ดังนี้:
+
+**คำถามที่ 1:** Zero Jaw Position คืออะไร และนิยามไว้ที่จุดไหนในกรอบพิกัดของ Team 1?
+
+**คำถามที่ 2:** CI-TRANSFORM ที่ Team 1 รับได้คือ JSON หรือ XML หรือทั้งสอง? มี Schema หรือ Example ให้ได้เลยไหม?
+
+**คำถามที่ 3:** Coordinate Frame ของ Team 1 อ้างอิงจากอะไร (Intraoral Scan origin / หน้าผู้ป่วย / อื่น)?
+
+**คำถามที่ 4:** ต้องส่ง CI-TRANSFORM แบบ Real-time Streaming หรือ Post-processing batch?
+
+**คำถามที่ 5:** มี Encryption / Authentication Requirement สำหรับ Patient ID ในระบบ Team 1 ไหม?
+
+**คำถามที่ 6:** Endpoint / API Version ที่ Team 1 จะ expose ให้ Team 4 test คืออะไร และพร้อมใช้เมื่อไหร่?
+
+> **⚠️ สำคัญ:** Team 4 ต้องการ API Spec จาก Team 1 **ก่อนเริ่ม Sprint S5** (ประมาณ 27 กรกฎาคม 2569) มิฉะนั้น Track C อาจต้องเลื่อน
+
+---
+
+## 5. ขั้นตอนถัดไป (Next Steps)
+
+| Action | ผู้รับผิดชอบ | Deadline |
+|---|---|---|
+| ตรวจสอบ Intraoral Scan วันนี้ว่ามี Markers ไหม | Team 4 | ASAP |
+| ถ่ายภาพใบหน้าหลายมุม ≥ 40 ใบ (extra-oral) | Team 4 | ก่อน Sprint S2 |
+| ตอบ API Contract Questions ข้อ 1–6 | Team 1 | ก่อน 27 ก.ค. 2569 |
+| Confirm Zero Jaw Position definition | Team 1 + Advisor | ก่อน Sprint S5 |
+| Review scope confirmation นี้ | รศ.ดร.พิษณุ | ตามสะดวก |
+
+---
+
+*หมายเหตุ: เอกสารนี้เป็น Draft — Team 4 ต้องส่งให้ที่ปรึกษาและ Team 1 ด้วยตนเอง*

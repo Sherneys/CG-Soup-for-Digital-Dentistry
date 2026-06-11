@@ -1,97 +1,119 @@
-# Plan — CG-Soup (ทั้งหน้า) + Jaw Tracking
+# Plan — CG-Soup (ใบหน้าทั้งหน้า) + JawTrack (Marker-Based)
 
-> แผนทำงานปัจจุบัน อัปเดต 11 มิ.ย. 2569 (สัปดาห์ที่ 2 ของโครงการ = Sprint S1)
+> อัปเดต 11 มิ.ย. 2569 | **Team 4** | รหัสโครงการ CP-2026-A4
+> เอกสารนี้คือแผนปฏิบัติงานจริง — ดู `docs/ARCHITECTURE.md` สำหรับ block diagram เต็ม
 
 ---
 
-## ⚠️ การแก้ขอบเขตสำคัญ (ต่างจากข้อเสนอโครงการ)
+## ขอบเขตโครงการ (Confirmed Scope)
 
-**CG-Soup สร้างโมเดล 3D ของ "ใบหน้าทั้งหน้า" (extra-oral) — ไม่ใช่ฟัน**
-
-| หัวข้อ | ข้อเสนอเดิมเขียนว่า | ขอบเขตจริง |
+| Track | สิ่งที่สร้าง | วิธี |
 |---|---|---|
-| เป้าหมาย CG-Soup | โมเดลฟัน/ช่องปาก | **ใบหน้าทั้งหน้า** |
-| บริเวณความโค้งสูง (สามเหลี่ยมถี่) | ปุ่มฟัน ขอบฟัน ขอบครอบฟัน | **จมูก ริมฝีปาก หู ขอบตา คาง** |
-| บริเวณราบ (สามเหลี่ยมห่าง) | เหงือก เพดานปาก | **แก้ม หน้าผาก** |
-| ข้อมูลฟัน/เหงือก | จาก CG-Soup | **จาก Intraoral Scan (IOS) ของคลินิกเท่านั้น** |
+| **Track A — CG-Soup** | โมเดล 3D **ใบหน้าทั้งหน้า** (extra-oral) < 5,000 สามเหลี่ยม | ภาพหลายมุม → SfM → Curvature-Guided DiffSoup |
+| **Track B — JawTrack** | การเคลื่อนไหวขากรรไกร 6DOF | Fiducial Dot Markers บนฟัน + Intraoral Scan + iPhone TrueDepth |
+| **Track C — Integration** | CI-TRANSFORM (JSON/XML) เข้า Exocad / Team 1 | Registration หน้า ↔ ฟัน + Marker Anchor |
 
-สิ่งที่**ไม่เปลี่ยน**: สถาปัตยกรรม DiffSoup + curvature-guided initialization, เป้า <5,000 สามเหลี่ยม, Jaw Tracking ด้วย iPhone TrueDepth + FreeMoCap, ส่งออก CI-TRANSFORM เข้า Exocad/Team 1
+### ขอบเขตของแต่ละ Track ที่ชัดเจน
 
-ผลที่ตามมา:
-- โมเดลหน้าจาก CG-Soup = พื้นผิวอ้างอิงที่ jaw motion ไปซ้อนทับ และเป็นตัวเชื่อมกับ intraoral scan ตอน registration
-- ชุดข้อมูลที่ต้องเก็บคือ **ภาพหลายมุมของหน้า** (ไม่ใช่ในช่องปาก) → ถ่ายง่ายกว่า ไม่ต้องใช้อุปกรณ์ intra-oral
-- งบ <5,000 สามเหลี่ยมสำหรับทั้งหน้าโอเค เพราะความโค้งสูงกระจุกที่จมูก/ปาก/หู ส่วนแก้ม/หน้าผากราบมาก — เข้าทาง curvature-guided พอดี
-- ต้องนิยาม "ความแม่นยำ" ใหม่: ที่สำคัญคือบริเวณรอบปาก/คาง (โซนที่ขากรรไกรขยับ) ไม่ใช่ผิวฟัน
+**Track A (CG-Soup = ใบหน้า ไม่ใช่ฟัน):**
+- บริเวณโค้งสูง → สามเหลี่ยมถี่: **จมูก ริมฝีปาก หู ขอบตา คาง**
+- บริเวณราบ → สามเหลี่ยมห่าง: **แก้ม หน้าผาก**
+- ข้อมูลฟัน/เหงือก = มาจาก Intraoral Scan เท่านั้น (ไม่ใช่จาก CG-Soup)
+- ต้องเก็บชุดภาพ "ยิ้มเห็นฟัน" 1 ชุดเพิ่ม สำหรับใช้เป็นสะพานตอน registration
+
+**Track B (JawTrack = Marker-Based ไม่ใช่ FreeMoCap skeleton):**
+- ติด Fiducial Dot Markers บนฟันบน + ล่าง (ดูภาพอ้างอิง)
+- **Intraoral Scan ต้องทำขณะ Marker ติดอยู่** → ได้ตำแหน่ง 3D ของ Marker ในกรอบพิกัดฟัน
+- iPhone TrueDepth ตรวจจับ Marker จากภายนอก → Back-Project → ตำแหน่ง 3D ต่อ Frame
+- SVD-based Rigid Body → 6DOF Transformation Matrix ต่อ Frame
+- Scale = ใช้ระยะห่างระหว่าง Marker จาก Intraoral Scan (ไม่มี Scale Ambiguity)
 
 ---
 
-## สถานะตอนนี้ (Sprint S1: 8–21 มิ.ย.)
+## ⚠️ Marker Protocol (บังคับทุก Session)
 
-เป้า S1 ตาม roadmap: **โมดูลวิเคราะห์ความโค้ง (principal curvatures + QEM) + Density Map**
+1. **ติด Fiducial Dot Markers** บนฟันบน + ล่าง
+2. **Intraoral Scan WITH Markers** (SHINING 3D) → STL/OBJ มีตำแหน่ง Marker
+3. **ตรวจสอบ** ว่า Marker ปรากฏครบใน STL/OBJ → ถ้าขาดต้องสแกนใหม่
+4. **iPhone TrueDepth** บันทึกการเคลื่อนไหวขากรรไกร
+5. **ถอด Marker** ได้หลังจาก ข้อ 2–4 ยืนยันสำเร็จแล้วเท่านั้น
 
-สิ่งที่เปลี่ยนเพราะขอบเขตใหม่:
-- [ ] Input ของโมดูล = coarse mesh **ของหน้า** (จาก SfM/COLMAP บนภาพหน้า หรือ TrueDepth depth)
-- [x] Verify ใหม่: visualize density map แล้วบริเวณ **จมูก ริมฝีปาก หู ขอบตา** ต้อง "ร้อน" (หนาแน่นสูง) ส่วนแก้ม/หน้าผากต้องเย็น — ✅ ผ่านบน max-planck + igea (ดู `output/*_density.png`)
-- [x] ถ้ายังไม่มีข้อมูลหน้าจริง ใช้ mesh หน้าสาธารณะไปก่อน (เช่น FaceScape sample, หัว mannequin สแกน) — อย่ารอข้อมูลคลินิก — ✅ ใช้ max-planck.obj + igea.obj ใน `data/`
+> 🔴 ข้อมูลจากคลินิกวันแรก: ตรวจสอบว่า Intraoral Scan มี Marker ติดอยู่ขณะสแกนหรือไม่
+> ถ้าไม่มี → ต้องนัดสแกนใหม่ก่อนเริ่ม Sprint S4
+
+---
+
+## สถานะปัจจุบัน (Sprint S1: 8–21 มิ.ย. 2569)
+
+| งาน | สถานะ |
+|---|---|
+| ตั้ง Python env (conda `dent`) + DiffSoup clone | ✅ เสร็จ |
+| `src/curvature_density.py` — principal curvatures + QEM + density map | ✅ เสร็จ (11 มิ.ย.) |
+| Verify density map บน max-planck + igea (จมูก/ปาก/หู = ร้อน) | ✅ ผ่าน |
+| แจ้งขอบเขต "ใบหน้า ไม่ใช่ฟัน" → อาจารย์ + Team 1 | 📝 ร่างพร้อม (ดู `docs/แจ้งขอบเขตใหม่_อาจารย์-Team1.md`) — **ยังไม่ส่ง** |
+| ถ่ายภาพหน้า multi-view ≥ 40 มุม (ข้อมูลจริง) | ⬜ ยังไม่ได้ทำ |
+| รัน COLMAP บนภาพหน้าจริง | ⬜ รอภาพก่อน |
+| Verify density map บน mesh หน้าจริง | ⬜ รอ COLMAP |
+| เปิดคุย API contract กับ Team 1 | ⬜ ต้องทำเร็ว ๆ นี้ |
 
 ---
 
 ## เช็คลิสต์เก็บข้อมูลที่คลินิก
 
 ### ชุด A — ภาพหลายมุมของหน้า (input หลักของ CG-Soup)
-- [ ] วิดีโอ/ภาพนิ่งกวาดรอบหน้า ~180° (หูซ้าย → หน้าตรง → หูขวา) แถวบน-กลาง-ล่าง รวม ≥ 40–80 ภาพ
-- [ ] ครอบคลุมหน้าผากถึงใต้คาง **รวมหูทั้งสองข้าง** (หูสำคัญต่อ registration กับ CBCT)
-- [ ] สีหน้า neutral ปิดปากสบาย ๆ **ห้ามขยับหน้า/หลับตาเปลี่ยนจังหวะระหว่างกวาด** (SfM จะพัง)
-- [ ] เก็บผมออกจากหน้าผาก/หู ถอดแว่น แสงสม่ำเสมอ ไม่ย้อนแสง ปิด beauty filter
-- [ ] ถ้าใช้ iPhone: ล็อก exposure/focus (กดค้างบนจอ) กันสีเพี้ยนข้ามเฟรม
-- [ ] เพิ่มอีก 1 ชุด: ยิ้มเห็นฟัน (ไว้เชื่อมหน้า ↔ ฟันตอน registration)
+- [ ] กวาดรอบหน้า ~180° (หูซ้าย → หน้าตรง → หูขวา) แถวบน-กลาง-ล่าง รวม **≥ 40–80 ภาพ**
+- [ ] ครอบคลุมหน้าผากถึงใต้คาง **รวมหูทั้งสองข้าง**
+- [ ] ปิดปากสบาย ๆ สีหน้า neutral **ห้ามขยับระหว่างกวาด** (SfM พัง)
+- [ ] เก็บผม เอาแว่น แสงสม่ำเสมอ ปิด beauty filter ล็อก exposure/focus
+- [ ] **เพิ่ม 1 ชุด "ยิ้มเห็นฟัน"** — ไว้เชื่อมหน้า ↔ ฟันตอน registration
 
-### ชุด B — ข้อมูลขากรรไกร (Track B, ใช้ตั้งแต่ S4)
-- [ ] วิดีโอ TrueDepth ขณะอ้า-หุบปาก, ยื่นคาง, เยื้องซ้าย-ขวา (อย่างละ ~3 รอบ)
-- [ ] มีวัตถุขนาดรู้จริงในเฟรมหรือวัด jig ไว้ → ใช้แก้ Scale Ambiguity ของ FreeMoCap
+### ชุด B — ข้อมูลขากรรไกร (Track B, ตั้งแต่ S4)
+- [ ] **ติด Fiducial Dot Markers ก่อน** ทุกอย่าง
+- [ ] Intraoral Scan (SHINING 3D) **ขณะ Marker ติดอยู่** → STL บน+ล่าง
+- [ ] ตรวจสอบ Marker ครบใน STL ก่อนถอด
+- [ ] วิดีโอ iPhone TrueDepth: อ้า-หุบ, ยื่นคาง, เยื้องซ้าย-ขวา อย่างละ ~3 รอบ
 
-### ชุด C — ข้อมูลอ้างอิงจากคลินิก
-- [ ] Intraoral scan (STL/PLY): บน + ล่าง + bite — เป็นกรอบพิกัดอ้างอิงตอน registration
-- [ ] CBCT DICOM (ถ้ามีและได้รับอนุญาต) — ไว้ validate ผิวหน้า
-- [ ] จด: รุ่น IOS scanner, รุ่น CBCT, เวอร์ชัน Exocad ที่คลินิกใช้, รูปแบบ import ที่ Exocad รับ
-
-### ทุกชุด
-- [ ] Consent ตาม PDPA ก่อนถ่าย (ข้อมูลหน้า = ระบุตัวตนได้โดยตรง)
-- [ ] ตารางเชื่อมข้อมูล: รหัสอาสาสมัคร ↔ ไฟล์ชุด A/B/C ↔ วันที่ถ่าย
-- [ ] เก็บ A+B+C ของคนเดียวกัน **ในวันเดียวกัน**
+### ชุด C — ข้อมูลอ้างอิง
+- [ ] Intraoral scan bite (ท่าสบฟัน) — สำหรับ Zero Jaw Position
+- [ ] CBCT DICOM (ถ้ามีและได้รับอนุญาต)
+- [ ] จด: รุ่น IOS, รุ่น CBCT, เวอร์ชัน Exocad, รูปแบบ import ที่รับได้
 
 ---
 
-## Timeline (คงตาม roadmap เดิม ปรับเนื้อหาเป็น "หน้า")
+## Timeline (14 สัปดาห์)
 
-| Sprint | สัปดาห์ | งานหลัก | Deliverable |
-|---|---|---|---|
-| ~~S0~~ | ~~W1~~ | ~~ตั้ง env, ศึกษา DiffSoup/FreeMoCap, เตรียม SfM~~ | ✅ ควรเสร็จแล้ว — ถ้ายัง ให้ปิดให้จบใน W2 |
-| **S1 ← ตอนนี้** | W2–3 (ถึง 21 มิ.ย.) | Curvature analysis + QEM บน mesh **หน้า** | โมดูลความโค้ง + Density Map (จมูก/ปาก/หูร้อน) |
-| S2 | W4–5 | Curvature-guided init + ต่อ DiffSoup pipeline | โมเดลหน้า CG-Soup <5,000 สามเหลี่ยม |
-| S3 | W6 | Regularization loss + วัด PSNR/SSIM/LPIPS เทียบ DiffSoup baseline | รายงานผลโมเดล 3D |
-| S4 | W7–8 | Jaw tracking 6DOF (TrueDepth + FreeMoCap) + scale calibration | สคริปต์ motion + ผล calibrate |
-| S5 | W9–10 | Registration: motion ↔ โมเดลหน้า ↔ intraoral scan (Zero Jaw Position กับ Team 1) | โค้ด transformation matrix |
-| S6 | W11 | Exporter CI-TRANSFORM (JSON/XML) → API Team 1 / Exocad | การเชื่อมต่อสำเร็จ |
-| S7 | W12–13 | ทดสอบอาสาสมัคร ≥10 คน: RMSE ≤ 0.5 มม., ≥ 30 fps | รายงานเปรียบเทียบความแม่นยำ |
-| S8 | W14 | จูน performance, รายงานฉบับสมบูรณ์, demo video | ส่งมอบครบ |
+| Sprint | สัปดาห์ | งานหลัก | Deliverable | สถานะ |
+|---|---|---|---|---|
+| S0 | W1 1–7 มิ.ย. | ตั้ง env, ศึกษา DiffSoup, Architecture Report | Architecture doc + env setup | ✅ |
+| **S1** | **W2–3 8–21 มิ.ย.** | **Curvature Analysis บน mesh หน้า** | **โมดูล + Density Map (จมูก/ปาก/หูร้อน)** | **⬤ กำลังทำ** |
+| S2 | W4–5 22 มิ.ย.–5 ก.ค. | CG-Soup Initialization + ต่อ DiffSoup | โมเดลหน้า CG-Soup < 5,000 สามเหลี่ยม | ⬜ |
+| S3 | W6 6–12 ก.ค. | Regularization + วัด PSNR/SSIM/LPIPS | รายงานผลโมเดล 3D | ⬜ |
+| S4 | W7–8 13–26 ก.ค. | Marker Detection + 3D Localization + Scale Verify | สคริปต์ตรวจจับ Marker + ผล Scale | ⬜ |
+| S5 | W9–10 27 ก.ค.–9 ส.ค. | 6DOF Rigid Body + Registration (Dental Frame) | โค้ด Transformation Matrix | ⬜ |
+| S6 | W11 10–16 ส.ค. | CI-TRANSFORM Exporter + API Team 1 / Exocad | ส่งออก CI-TRANSFORM สำเร็จ | ⬜ |
+| S7 | W12–13 17–30 ส.ค. | ทดสอบอาสาสมัคร ≥ 10 คน: RMSE ≤ 0.5 มม., ≥ 30 fps | รายงานความแม่นยำ | ⬜ |
+| S8 | W14 31 ส.ค.–6 ก.ย. | Performance tuning + รายงาน + demo | ส่งมอบครบ | ⬜ |
 
 ---
 
 ## งานที่ต้องทำทันที (สัปดาห์นี้)
 
-1. **เก็บข้อมูลชุด A ที่คลินิกให้ได้อย่างน้อย 1 คน** ตามเช็คลิสต์ข้างบน (ถ่ายตัวเองก็ได้ถ้าอาสาสมัครยังไม่พร้อม)
-2. รัน COLMAP บนภาพชุด A → camera poses + coarse point cloud/mesh ของหน้า (ปิดงาน S0 ด้วยข้อมูลจริง)
-3. ~~เริ่มโมดูล curvature: principal curvatures + QEM ต่อ vertex บน mesh หน้า~~ ✅ เสร็จแล้ว (11 มิ.ย.) — `src/curvature_density.py` verify ผ่านบน mesh สาธารณะ 2 ชุด เหลือรันซ้ำกับ mesh หน้าจริงเมื่อได้ข้อมูลชุด A
-4. **แจ้งอาจารย์/Team 1 เรื่องขอบเขต "ทั้งหน้า ไม่ใช่ฟัน"** ให้เป็นลายลักษณ์อักษร แล้วแก้ข้อเสนอโครงการ — กัน KPI/การตรวจรับเพี้ยนตอนท้ายเทอม → ✅ ข้อเสนอโครงการแก้เป็น "ใบหน้า" ทั้งฉบับแล้ว (11 มิ.ย.) / 📝 ร่างข้อความแจ้งพร้อมส่งที่ `docs/แจ้งขอบเขตใหม่_อาจารย์-Team1.md` (**ยังไม่ได้ส่ง — ต้องส่งเอง**)
-5. เปิดคุย API contract กับ Team 1 เรื่อง landmark / Zero Jaw Position ตั้งแต่ตอนนี้ (roadmap เตือนว่าอย่ารอถึง S5) → 📝 รายการประเด็น 6 ข้อร่างไว้ใน `docs/แจ้งขอบเขตใหม่_อาจารย์-Team1.md` ส่วนที่ 2
+1. **ส่งข้อความแจ้งขอบเขต** → อาจารย์ + Team 1 (ร่างอยู่ใน `docs/แจ้งขอบเขตใหม่_อาจารย์-Team1.md`)
+2. **ถ่ายภาพหน้า multi-view** ≥ 40 มุม ตามเช็คลิสต์ชุด A (ถ่ายตัวเองได้ก่อน)
+3. **รัน COLMAP** → coarse face mesh → รัน `curvature_density.py` บน mesh หน้าจริง
+4. **เปิดคุย API contract กับ Team 1** — ประเด็น 6 ข้อใน `docs/แจ้งขอบเขตใหม่_อาจารย์-Team1.md`
 
 ---
 
-## ความเสี่ยงเพิ่มเติมจากขอบเขตใหม่
+## ความเสี่ยง
 
-- **ผิวหน้าไม่แข็ง (non-rigid):** หน้าขยับ/แสดงสีหน้าได้ ต่างจากฟัน — protocol ถ่ายต้องคุม neutral เข้มงวด ไม่งั้น SfM/optimization เพี้ยน
-- **ผม คิ้ว ขนตา:** triangle soup กับบริเวณเส้นผมไม่เข้ากัน → ตัด scope ที่ "ผิวหน้า" ใช้ hair cap ถ้าจำเป็น
-- **ผิวหน้า specular/ผิวมัน:** ทำ color loss เพี้ยน → ระวังแสง ใช้แสงกระจาย (diffuse)
-- **เชื่อมหน้า ↔ ฟัน:** หน้า (extra-oral) กับ intraoral scan แทบไม่มีพื้นผิวซ้อนกัน — ต้องใช้ชุด "ยิ้มเห็นฟัน" หรือ bite jig เป็นสะพานตอน registration (จุดนี้ต้องตกลงกับ Team 1 เร็ว ๆ)
-- ความเสี่ยงเดิมจาก roadmap ยังอยู่ครบ: Scale Ambiguity, DiffSoup เป็นโค้ดใหม่ปี 2026, PDPA, ตัวเลข KPI ต้องวัดจริง
+| ความเสี่ยง | แนวทางรับมือ |
+|---|---|
+| Intraoral Scan ไม่มี Marker (ข้อมูลวันแรก) | นัดสแกนใหม่ WITH Markers — Track B หยุดถ้าไม่มีข้อมูลนี้ |
+| Marker หลุด/เลื่อนระหว่าง Session | ตรวจสอบก่อน/หลัง; ถ้าเลื่อนต้องสแกนใหม่ |
+| iPhone ตรวจจับ Marker ไม่ได้ | กำหนดโปรโตคอลแสง; Fallback = ArUco Coded Markers |
+| ผิวหน้า non-rigid (หน้าขยับ) | Protocol ถ่ายต้องคุม neutral เข้มงวด |
+| API contract กับ Team 1 ล่าช้า | เริ่มคุยตอนนี้ — Block S5 ถ้า Spec ยังไม่นิ่ง |
+| เชื่อมหน้า ↔ ฟัน ไม่มี overlap | ใช้ชุดภาพ "ยิ้มเห็นฟัน" หรือ bite jig เป็นสะพาน |
+| DiffSoup โค้ดใหม่ปี 2026 | เผื่อ debug time S0–S2 |
+| PDPA | เข้ารหัส + ลบข้อมูลดิบตั้งแต่ออกแบบ S6 |
