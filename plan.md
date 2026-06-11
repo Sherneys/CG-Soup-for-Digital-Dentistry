@@ -30,7 +30,7 @@
 เป้า S1 ตาม roadmap: **โมดูลวิเคราะห์ความโค้ง (principal curvatures + QEM) + Density Map**
 
 สิ่งที่เปลี่ยนเพราะขอบเขตใหม่:
-- [ ] Input ของโมดูล = coarse mesh **ของหน้า** (จาก SfM/COLMAP บนภาพหน้า หรือ TrueDepth depth)
+- [x] Input ของโมดูล = coarse mesh **ของหน้า** (จาก SfM/COLMAP บนภาพหน้า หรือ TrueDepth depth) — ✅ pipeline E2E ผ่านแล้ว (11 มิ.ย.): `src/sfm_pipeline.py` รัน COLMAP CUDA ครบ feature→match→sparse→dense→Poisson บนชุด buddha head 67 ภาพ ([alicevision/dataset_buddha](https://github.com/alicevision/dataset_buddha)) → simplify เป็น 89k vertices → density map ร้อนที่รายละเอียดหน้า เย็นที่ฉากหลัง (`output/mesh_coarse_density.png`) — เหลือแค่รันซ้ำกับภาพหน้าคนจริง (ชุด A)
 - [x] Verify ใหม่: visualize density map แล้วบริเวณ **จมูก ริมฝีปาก หู ขอบตา** ต้อง "ร้อน" (หนาแน่นสูง) ส่วนแก้ม/หน้าผากต้องเย็น — ✅ ผ่านบน max-planck + igea (ดู `output/*_density.png`)
 - [x] ถ้ายังไม่มีข้อมูลหน้าจริง ใช้ mesh หน้าสาธารณะไปก่อน (เช่น FaceScape sample, หัว mannequin สแกน) — อย่ารอข้อมูลคลินิก — ✅ ใช้ max-planck.obj + igea.obj ใน `data/`
 
@@ -81,7 +81,7 @@
 ## งานที่ต้องทำทันที (สัปดาห์นี้)
 
 1. **เก็บข้อมูลชุด A ที่คลินิกให้ได้อย่างน้อย 1 คน** ตามเช็คลิสต์ข้างบน (ถ่ายตัวเองก็ได้ถ้าอาสาสมัครยังไม่พร้อม)
-2. รัน COLMAP บนภาพชุด A → camera poses + coarse point cloud/mesh ของหน้า (ปิดงาน S0 ด้วยข้อมูลจริง)
+2. รัน COLMAP บนภาพชุด A → camera poses + coarse point cloud/mesh ของหน้า (ปิดงาน S0 ด้วยข้อมูลจริง) → 🔧 เครื่องมือพร้อมแล้ว (11 มิ.ย.): COLMAP CUDA ที่ `D:\Tools\colmap` + `src/sfm_pipeline.py` ทดสอบ E2E ผ่านกับ buddha dataset แล้ว เหลือแค่เสียบภาพชุด A
 3. ~~เริ่มโมดูล curvature: principal curvatures + QEM ต่อ vertex บน mesh หน้า~~ ✅ เสร็จแล้ว (11 มิ.ย.) — `src/curvature_density.py` verify ผ่านบน mesh สาธารณะ 2 ชุด เหลือรันซ้ำกับ mesh หน้าจริงเมื่อได้ข้อมูลชุด A
 4. **แจ้งอาจารย์/Team 1 เรื่องขอบเขต "ทั้งหน้า ไม่ใช่ฟัน"** ให้เป็นลายลักษณ์อักษร แล้วแก้ข้อเสนอโครงการ — กัน KPI/การตรวจรับเพี้ยนตอนท้ายเทอม → ✅ ข้อเสนอโครงการแก้เป็น "ใบหน้า" ทั้งฉบับแล้ว (11 มิ.ย.) / 📝 ร่างข้อความแจ้งพร้อมส่งที่ `docs/แจ้งขอบเขตใหม่_อาจารย์-Team1.md` (**ยังไม่ได้ส่ง — ต้องส่งเอง**)
 5. เปิดคุย API contract กับ Team 1 เรื่อง landmark / Zero Jaw Position ตั้งแต่ตอนนี้ (roadmap เตือนว่าอย่ารอถึง S5) → 📝 รายการประเด็น 6 ข้อร่างไว้ใน `docs/แจ้งขอบเขตใหม่_อาจารย์-Team1.md` ส่วนที่ 2

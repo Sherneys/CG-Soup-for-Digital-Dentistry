@@ -1,0 +1,10 @@
+# Base (curvature/density module)
+numpy
+scipy
+trimesh
+matplotlib
+
+# GPU (DiffSoup pipeline, S2+) — install with CUDA wheels:
+#   uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+torch
+torchvision

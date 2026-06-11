@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Large datasets (re-download: see docs/รายงานงาน_11มิย2569 — alicevision/dataset_buddha)
+data/buddha/
+
+# Large COLMAP workspaces (regenerate: python src/sfm_pipeline.py)
+output/*_sfm/
+
+# OS
+.DS_Store
+
+# Local Claude settings
+.claude/settings.local.json

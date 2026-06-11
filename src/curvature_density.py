@@ -55,10 +55,15 @@ def principal_curvatures(mesh, n_rings=2):
         if len(nb) < 5:  # underdetermined fit (boundary/degenerate vertex)
             continue
         n = N[i]
+        if not np.all(np.isfinite(n)):  # degenerate vertex -> garbage normal
+            continue
         # tangent basis
         t = np.array([1.0, 0.0, 0.0]) if abs(n[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
         e1 = np.cross(n, t)
-        e1 /= np.linalg.norm(e1)
+        e1_norm = np.linalg.norm(e1)
+        if e1_norm < 1e-12:  # zero normal -> no tangent frame
+            continue
+        e1 /= e1_norm
         e2 = np.cross(n, e1)
         d = V[nb] - V[i]
         u, v, w = d @ e1, d @ e2, d @ n
