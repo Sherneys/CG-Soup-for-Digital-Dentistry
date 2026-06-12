@@ -6,6 +6,9 @@ __pycache__/
 # Large datasets (re-download: see docs/รายงานงาน_11มิย2569 — alicevision/dataset_buddha)
 data/buddha/
 
+# Personal face captures — PDPA, NEVER commit (raw videos/frames of real people)
+data/face_*/
+
 # Large COLMAP workspaces (regenerate: python src/sfm_pipeline.py)
 output/*_sfm/
 

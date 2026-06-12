@@ -108,6 +108,8 @@ uv pip install D:\Project\diffsoup --python D:\Project\CG-Soup-for-Digital-Denti
 
 > ⚠️ **บทเรียน full-res:** baseline `--downscale 1` ถูก kill ที่ step 2,743 (27%) หลังรัน 17.5 ชม. — VRAM ล้น 12GB ทำให้ช้าลงเหลือ ~32 วิ/step (ETA ~80 ชม.) **ห้ามรัน full res บนการ์ดนี้** / `--downscale 4` ต้องสร้างโฟลเดอร์ `dense/images_4/` เองก่อน (loader ไม่ resize ให้)
 
+**Input เป็นวิดีโอได้:** อัดวิดีโอกวาดรอบหัวตาม `docs/Protocol_ถ่ายวิดีโอเก็บข้อมูลหน้า.md` (กฎเหล็ก: คนนิ่ง กล้องเคลื่อน) แล้วแปลงเป็นภาพด้วย `src/video_to_frames.py` (คัดเฟรมคมอัตโนมัติ) ก่อนเข้า `sfm_pipeline.py`
+
 **คำสั่งรัน S2 (สร้าง init):**
 
 ```powershell
