@@ -90,7 +90,23 @@ uv pip install D:\Project\diffsoup --python D:\Project\CG-Soup-for-Digital-Denti
 4. ~~เขียนโมดูล S2 (curvature-guided init)~~ ✅ เสร็จแล้ว (12 มิ.ย. 2569) — 2 ไฟล์ใหม่:
    - `src/curvature_init.py` — โหลด coarse mesh → density map (S1) → sample seeds ตามความหนาแน่น + per-point triangle scale จาก k-NN spacing (CPU ล้วน) ทดสอบกับ buddha แล้ว: 15,000 seeds, scale ต่างกัน ~4.5 เท่าระหว่างโซนโค้ง/แบน (ดู `output/mesh_coarse_curv_init_scatter.png`)
    - `src/diffsoup_train.py` — สำเนา `01_mip360.py` ที่เพิ่ม `--init {random,curvature}` + `--init_npz` + `--max_faces` (ลูป training/loss/resample เหมือนเดิมทุกอย่างเพื่อเทียบแฟร์ ๆ) ระบุที่ตั้ง repo ผ่าน env `DIFFSOUP_ROOT` (default `D:\Project\diffsoup`)
-5. **งานถัดไป (S3):** รันเทียบ random vs curvature ที่ `--downscale 4` budget สามเหลี่ยมเท่ากัน → เทียบ PSNR/SSIM
+5. ~~รันเทียบ random vs curvature ครบ 3 ระดับ budget~~ ✅ เสร็จแล้ว (คืน 12 มิ.ย.) — `--downscale 4`, 10,000 steps, เงื่อนไขเท่ากันทุกคู่ (ฝั่งละ ~6–8 นาที):
+
+   | Budget (faces) | Curvature PSNR/SSIM | Random PSNR/SSIM | ส่วนต่าง |
+   |---|---|---|---|
+   | 15,000 | 15.920 / 0.5681 | 15.748 / 0.5516 | +0.17 dB / +0.017 |
+   | 10,000 | **16.014** / 0.5563 | 15.503 / 0.5243 | **+0.51 dB / +0.032** |
+   | **5,000** ← เป้าโครงการ | **15.384 / 0.5262** | 14.944 / 0.4952 | **+0.44 dB / +0.031** |
+
+   **Curvature ชนะทุก budget และ margin โต ~3 เท่าเมื่องบตึง** (0.17 → 0.44–0.51 dB) — ยืนยันสมมติฐานหลักของโครงการ จำนวน faces ใน checkpoint ตรงงบเป๊ะทุกตัว (verify จาก `final_params.pt` แล้ว) ผลอยู่ที่ `output/diffsoup_buddha_{curv,rand}_d4[_f10k|_f5k]/`
+6. ~~S3: regularization + LPIPS + multi-seed~~ ✅ เสร็จ 13 มิ.ย. — สรุปสำคัญ:
+   - **Head-only pipeline** (`make_masks.py` + `--masks` + crop init): PSNR กระโดด 15.4 → **22.4 dB**, SSIM 0.53 → **0.80** ที่ 5,000 faces เท่าเดิม
+   - Head-only 3 seeds: curvature ≈ random ภายใน noise (+0.07 dB) แต่**นิ่งกว่า ~5 เท่า** (SD 0.017 vs 0.081) — buddha เป็น worst-case ของวิธีเรา (โค้งสม่ำเสมอทั้งหัว) คาดว่าหน้าคนจริงจะต่างชัดกว่า
+   - Normal-consistency regularizer: ไม่ช่วย image metrics (λ=0 ดีสุด) — คุณค่าอยู่ที่ geometry ต้องวัดด้วย chamfer ภายหลัง
+   - รายละเอียดเต็ม: `docs/รายงานงาน_13มิย2569_S3-HeadOnly-MultiSeed.md`
+7. **งานถัดไป:** budget ต่ำกว่า (2,500/1,000 faces head-only) / geometric eval / ข้อมูลหน้าจริงชุด A
+
+> ⚠️ **บทเรียน full-res:** baseline `--downscale 1` ถูก kill ที่ step 2,743 (27%) หลังรัน 17.5 ชม. — VRAM ล้น 12GB ทำให้ช้าลงเหลือ ~32 วิ/step (ETA ~80 ชม.) **ห้ามรัน full res บนการ์ดนี้** / `--downscale 4` ต้องสร้างโฟลเดอร์ `dense/images_4/` เองก่อน (loader ไม่ resize ให้)
 
 **คำสั่งรัน S2 (สร้าง init):**
 
@@ -123,4 +139,4 @@ D:\Project\CG-Soup-for-Digital-Dentistry\.venv\Scripts\python.exe examples\01_mi
     --out_dir D:\Project\CG-Soup-for-Digital-Dentistry\output\diffsoup_buddha_baseline
 ```
 
-ผล baseline 10,000 steps อยู่ที่ `output/diffsoup_buddha_baseline/` (PSNR/SSIM ใน `test_views/metrics.txt`)
+~~ผล baseline 10,000 steps อยู่ที่ `output/diffsoup_buddha_baseline/`~~ → ถูกยกเลิก (VRAM ล้น ดูบทเรียนด้านบน) ใช้ผลคู่ d4 ที่ `output/diffsoup_buddha_{curv,rand}_d4/test_views/metrics.txt` แทน

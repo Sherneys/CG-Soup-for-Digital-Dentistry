@@ -77,9 +77,16 @@ def save_preview_ply(points, density, path):
 
 
 def build_init(mesh_file, n_points=15000, floor=0.05, knn=3, factor=0.25,
-               rings=2, seed=0):
-    """Full S2 pipeline: mesh -> density -> seeds + scales."""
+               rings=2, seed=0, crop_center=None, crop_radius=None):
+    """Full S2 pipeline: mesh -> (optional sphere crop) -> density -> seeds + scales."""
     mesh = trimesh.load(mesh_file, process=True, force="mesh")
+    if crop_center is not None and crop_radius is not None:
+        dist = np.linalg.norm(mesh.triangles_center - np.asarray(crop_center), axis=1)
+        keep = np.where(dist <= crop_radius)[0]
+        if len(keep) == 0:
+            raise SystemExit("crop removed every face — check --crop-center/--crop-radius")
+        mesh = mesh.submesh([keep], append=True)
+        print(f"[crop] kept {len(mesh.faces):,} faces within r={crop_radius} of {list(crop_center)}")
     density, _, _ = density_map(mesh, n_rings=rings)
     pts, dens = sample_points_by_density(mesh, density, n_points, floor=floor, seed=seed)
     scales = local_scales(pts, knn=knn, factor=factor)
@@ -97,6 +104,9 @@ def main():
                     help="circumradius = factor * local k-NN spacing")
     ap.add_argument("--rings", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--crop-center", type=float, nargs=3, default=None,
+                    help="sphere-crop the mesh around XYZ before sampling (e.g. head only)")
+    ap.add_argument("--crop-radius", type=float, default=None)
     ap.add_argument("--out", default=None, help="output .npz (default: <out-dir>/<name>_curv_init.npz)")
     ap.add_argument("--out-dir", default=os.path.join(os.path.dirname(__file__), "..", "output"))
     args = ap.parse_args()
@@ -108,6 +118,7 @@ def main():
     pts, scales, dens, mesh = build_init(
         args.mesh_file, n_points=args.n_points, floor=args.floor,
         knn=args.knn, factor=args.scale_factor, rings=args.rings, seed=args.seed,
+        crop_center=args.crop_center, crop_radius=args.crop_radius,
     )
 
     print(f"mesh: {len(mesh.vertices)} verts, {len(mesh.faces)} faces, bounds={mesh.bounds.tolist()}")

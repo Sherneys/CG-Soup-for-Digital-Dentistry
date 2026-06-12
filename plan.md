@@ -55,11 +55,17 @@
 
 - [x] **DiffSoup ติดตั้ง/build สำเร็จบน Windows** เข้า `.venv` (สูตร + workaround 3 จุดบันทึกใน `docs/DiffSoup_การใช้งานในโปรเจกต์.md`)
 - [x] **Smoke test 200 steps ผ่าน** กับ buddha scene — ยืนยัน output ของ `sfm_pipeline.py` ป้อนเข้า `01_mip360.py` ได้ตรง ๆ
-- [⏳] **DiffSoup baseline เต็ม 10,000 steps (full res, random init) กำลังรัน** — เริ่ม 05:20 น. 12 มิ.ย. คาดเสร็จ ~18:00–22:00 น. (บทเรียน: full res ใช้ 12–18 ชม. รอบ iterate ต่อไปใช้ `--downscale 4` จบ <1 ชม.) → ผลคือตัวเลขฝั่ง random init ของ KPI S3
+- [x] ~~DiffSoup baseline full res~~ → **ยกเลิก** (VRAM ล้น 12GB → 32 วิ/step, kill ที่ 27% หลัง 17.5 ชม.) เปลี่ยนเป็นคู่เทียบที่ `--downscale 4` แทน — รันจบแล้วคืน 12 มิ.ย. ฝั่งละ ~8 นาที
 - [x] **โมดูล S2 (curvature-guided init) เขียนเสร็จ + ทดสอบ sampling ผ่าน** (เนื้องาน Sprint S2 ตาม roadmap):
   - `src/curvature_init.py` — density map → seeds 15,000 จุด + per-point triangle scale (โซนโค้งได้สามเหลี่ยมเล็ก/ถี่ ต่างกัน ~4.5 เท่า) verify ด้วยตาบน buddha แล้ว
   - `src/diffsoup_train.py` — training script ที่สลับ `--init random|curvature` ได้ ลูปเหมือนต้นฉบับทุกบรรทัดเพื่อเทียบแฟร์
-- [ ] **เหลือของ S2:** รัน `--init curvature` E2E ครั้งแรก (รอ GPU ว่างจาก baseline) + ทดลองลด budget ลงสู่เป้า <5,000 สามเหลี่ยม
+- [x] **รันเทียบ E2E ครบ 3 budget (คืน 12 มิ.ย.) — S2 ปิดแล้ว ✅:** buddha, d4, 10,000 steps — **curvature ชนะทุก budget และ margin โต ~3 เท่าเมื่องบตึง:**
+  | faces | curv | rand | Δ PSNR |
+  |---|---|---|---|
+  | 15,000 | 15.92/0.568 | 15.75/0.552 | +0.17 dB |
+  | 10,000 | 16.01/0.556 | 15.50/0.524 | +0.51 dB |
+  | **5,000** | **15.38/0.526** | 14.94/0.495 | **+0.44 dB** |
+  → **Deliverable S2 สำเร็จ: โมเดล buddha 5,000 faces เป๊ะ** (`output/diffsoup_buddha_curv_d4_f5k/final_params.pt`) ใบหน้ายังคมชัด ฉากหลังหยาบ = triangle ถูกจัดสรรถูกที่
 
 ---
 
@@ -91,8 +97,8 @@
 |---|---|---|---|
 | ~~S0~~ | ~~W1~~ | ~~ตั้ง env, ศึกษา DiffSoup/FreeMoCap, เตรียม SfM~~ | ✅ ควรเสร็จแล้ว — ถ้ายัง ให้ปิดให้จบใน W2 |
 | ~~S1~~ | W2–3 (ถึง 21 มิ.ย.) | ~~Curvature analysis + QEM บน mesh~~ | ✅ ปิดแล้ว 12 มิ.ย. — verify บน buddha (ตัวแทนหน้าจริง) + mesh สาธารณะ 2 ชุด |
-| S2 🏃 ล้ำแผน | W4–5 | Curvature-guided init + ต่อ DiffSoup pipeline | โมเดลหน้า CG-Soup <5,000 สามเหลี่ยม — **โค้ดเสร็จแล้ว 12 มิ.ย. (W2)** เหลือรัน E2E + ลด budget |
-| S3 | W6 | Regularization loss + วัด PSNR/SSIM/LPIPS เทียบ DiffSoup baseline | รายงานผลโมเดล 3D — baseline ฝั่ง random กำลังรันอยู่ |
+| ~~S2~~ | W4–5 | ~~Curvature-guided init + ต่อ DiffSoup pipeline~~ | ✅ **ปิดแล้ว 12 มิ.ย. (เร็วกว่าแผน 3 สัปดาห์)** — curvature ชนะ random ทุก budget (+0.17→+0.51 dB), โมเดล 5,000 faces ส่งมอบได้ |
+| ~~S3~~ | W6 | ~~Regularization loss + วัด PSNR/SSIM/LPIPS~~ | ✅ **เนื้องานหลักเสร็จ 13 มิ.ย. (เร็วกว่าแผน ~4 สัปดาห์)** — LPIPS + multi-seed + reg ablation + head-only pipeline (PSNR 22.4 / SSIM 0.80 @5k faces) ดู `docs/รายงานงาน_13มิย2569` |
 | S4 | W7–8 | Jaw tracking 6DOF: Marker Detection + 3D Localization + Scale Verify (TrueDepth) | สคริปต์ตรวจจับ Marker + ผล Scale |
 | S5 | W9–10 | Registration: motion ↔ โมเดลหน้า ↔ intraoral scan (Zero Jaw Position กับ Team 1) | โค้ด transformation matrix |
 | S6 | W11 | Exporter CI-TRANSFORM (JSON/XML) → API Team 1 / Exocad | การเชื่อมต่อสำเร็จ |
@@ -108,7 +114,8 @@
 3. ~~เริ่มโมดูล curvature: principal curvatures + QEM ต่อ vertex บน mesh หน้า~~ ✅ เสร็จแล้ว (11 มิ.ย.) — `src/curvature_density.py` verify ผ่านบน mesh สาธารณะ 2 ชุด เหลือรันซ้ำกับ mesh หน้าจริงเมื่อได้ข้อมูลชุด A
 4. **แจ้งอาจารย์/Team 1 เรื่องขอบเขต "ทั้งหน้า ไม่ใช่ฟัน"** ให้เป็นลายลักษณ์อักษร แล้วแก้ข้อเสนอโครงการ — กัน KPI/การตรวจรับเพี้ยนตอนท้ายเทอม → ✅ ข้อเสนอโครงการแก้เป็น "ใบหน้า" ทั้งฉบับแล้ว (11 มิ.ย.) / 📝 ร่างข้อความแจ้งพร้อมส่งที่ `docs/แจ้งขอบเขตใหม่_อาจารย์-Team1.md` (**ยังไม่ได้ส่ง — ต้องส่งเอง**)
 5. เปิดคุย API contract กับ Team 1 เรื่อง landmark / Zero Jaw Position ตั้งแต่ตอนนี้ (roadmap เตือนว่าอย่ารอถึง S5) → 📝 รายการประเด็น 6 ข้อร่างไว้ใน `docs/แจ้งขอบเขตใหม่_อาจารย์-Team1.md` ส่วนที่ 2
-6. **พอ baseline เสร็จ (คืนนี้):** รันเทียบ random vs curvature ที่ `--downscale 4` (คำสั่งพร้อมใช้ใน `docs/DiffSoup_การใช้งานในโปรเจกต์.md`) — ได้ตัวเลข PSNR/SSIM เทียบกันคู่แรกของโครงการ
+6. ~~รันเทียบ random vs curvature ที่ `--downscale 4`~~ ✅ เสร็จคืน 12 มิ.ย. — **curvature ชนะทั้งคู่: PSNR 15.92 vs 15.75 dB / SSIM 0.568 vs 0.552** (buddha, 15k faces, รายวิวชนะ PSNR 6/9, SSIM 7/9)
+7. ~~ไล่ลด `--max_faces` 15,000 → 10,000 → 5,000~~ ✅ เสร็จคืน 12 มิ.ย. — margin โตจาก +0.17 → +0.44/+0.51 dB เมื่องบตึง **S2 ปิดสมบูรณ์** เข้าสู่ S3 (regularization loss + รันซ้ำหลาย seed) ได้เลย
 
 ---
 

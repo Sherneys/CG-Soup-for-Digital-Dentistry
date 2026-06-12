@@ -33,6 +33,7 @@ import numpy as np
 import open3d as o3d
 import torch
 from pytorch_msssim import ssim
+from scipy.spatial import cKDTree
 from torch.optim import Adam
 from tqdm.auto import tqdm
 
@@ -58,20 +59,72 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed_all(SEED)
 
 
+# ── Normal-consistency regularizer (CG-Soup S3) ──────────────────────
+#   Triangle soup has no shared edges, so smoothness is enforced on the
+#   k nearest triangles by centroid: penalize 1 - |cos| between face
+#   normals (|.| because soup winding order is arbitrary).
+
+def face_normals(V: torch.Tensor, F: torch.Tensor) -> torch.Tensor:
+    tri = V[F.long()]
+    n = torch.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0], dim=-1)
+    return torch.nn.functional.normalize(n, dim=-1, eps=1e-8)
+
+
+def build_face_knn(V: torch.Tensor, F: torch.Tensor, k: int) -> torch.Tensor:
+    with torch.no_grad():
+        c = V[F.long()].mean(dim=1).detach().cpu().numpy()
+    _, idx = cKDTree(c).query(c, k=k + 1)
+    return torch.from_numpy(idx[:, 1:].astype(np.int64)).to(V.device)
+
+
+# ── Object masks (head-only training) ────────────────────────────────
+
+def load_view_masks(mask_dir: str, frames, device) -> torch.Tensor:
+    """(N, H, W, 1) float masks matching frames by image basename."""
+    ms = []
+    for fr in frames:
+        stem = os.path.splitext(os.path.basename(fr["img_path"]))[0]
+        m = iio.imread(os.path.join(mask_dir, f"{stem}.png"))
+        if m.ndim == 3:
+            m = m[..., 0]
+        ms.append(torch.from_numpy((m > 127).astype(np.float32)).to(device))
+    return torch.stack(ms, dim=0).unsqueeze(-1)
+
+
+def masked_psnr(pred: torch.Tensor, gt: torch.Tensor, m: torch.Tensor) -> float:
+    mse = (((pred - gt) ** 2) * m).sum() / (m.sum() * 3).clamp(min=1.0)
+    return float((-10.0 * torch.log10(mse)).item())
+
+
+def mask_bbox_crop(pred: torch.Tensor, gt: torch.Tensor, m: torch.Tensor, margin: int = 8):
+    """Crop (H,W,*) tensors to the mask bounding box for SSIM/LPIPS."""
+    ys, xs = torch.where(m[..., 0] > 0.5)
+    if len(ys) == 0:
+        return pred, gt
+    y0, y1 = max(0, ys.min().item() - margin), min(m.shape[0], ys.max().item() + margin + 1)
+    x0, x1 = max(0, xs.min().item() - margin), min(m.shape[1], xs.max().item() + margin + 1)
+    mm = m[y0:y1, x0:x1]
+    return pred[y0:y1, x0:x1] * mm, gt[y0:y1, x0:x1] * mm
+
+
 # ── Initialization variants ──────────────────────────────────────────
 
-def init_soup_random(scene_root: str, device) -> tuple[torch.Tensor, torch.Tensor]:
+def init_soup_random(scene_root: str, device, crop_center=None, crop_radius=None) -> tuple[torch.Tensor, torch.Tensor]:
     """Original 01_mip360.py init: FPS 10k + random 5k from COLMAP points3D."""
     xyz_np = read_points3D(scene_root)
     print(f"[points3D] loaded original {xyz_np.shape[0]:,} points")
+    if crop_center is not None and crop_radius is not None:
+        d = np.linalg.norm(xyz_np - np.asarray(crop_center), axis=1)
+        xyz_np = xyz_np[d <= crop_radius]
+        print(f"[crop] points3D within r={crop_radius}: {len(xyz_np):,}")
     N_total = xyz_np.shape[0]
 
-    sel = np.random.choice(xyz_np.shape[0], 5_000, replace=False)
+    sel = np.random.choice(xyz_np.shape[0], min(5_000, N_total), replace=False)
     xyz_sel = xyz_np[sel]
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(xyz_np)
-    pcd_down = pcd.farthest_point_down_sample(10_000)
+    pcd_down = pcd.farthest_point_down_sample(min(10_000, N_total))
     xyz_np = np.asanyarray(pcd_down.points)
 
     xyz_np = np.concatenate([xyz_np, xyz_sel], axis=0)
@@ -111,7 +164,18 @@ def main(
     init: str = "random",
     init_npz: Optional[str] = None,
     max_faces: int = 15_000,
+    seed: int = SEED,
+    reg_normal: float = 0.0,
+    reg_knn: int = 4,
+    masks: Optional[str] = None,
+    crop_center=None,
+    crop_radius: Optional[float] = None,
 ):
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     scene_name = os.path.basename(os.path.normpath(scene_root))
     if out_dir is None:
@@ -135,8 +199,15 @@ def main(
             raise SystemExit("--init curvature requires --init_npz (from src/curvature_init.py)")
         V_single, F = init_soup_curvature(init_npz, device)
     else:
-        V_single, F = init_soup_random(scene_root, device)
+        V_single, F = init_soup_random(scene_root, device, crop_center, crop_radius)
     print(f"[soup] initial faces={F.shape[0]:,}")
+
+    train_masks = None
+    if masks:
+        train_masks = load_view_masks(masks, frames, device)
+        assert train_masks.shape[1:3] == (H, W), \
+            f"mask size {tuple(train_masks.shape[1:3])} != image size {(H, W)} — regenerate masks at this downscale"
+        print(f"[masks] loaded {train_masks.shape[0]} train masks from {masks}")
 
     # ── Feature buffers ──────────────────────────────────────────────
     #   Rmin, Rmax: multi-resolution level range.  Both colour and opacity
@@ -224,6 +295,8 @@ def main(
     perm = torch.randperm(N_train, device=device)
     ptr = 0
 
+    nbr_idx = build_face_knn(V_single, F, reg_knn) if reg_normal > 0 else None
+
     pbar = tqdm(range(1, steps + 1), desc="optimising", leave=True)
     for i_iter in pbar:
         end = min(ptr + batch_size, N_train)
@@ -261,16 +334,33 @@ def main(
         color = color_mlp.forward(feat, mask=rast_out[..., -1] > 0).view(-1, H, W, 3)
 
         # Opacity auxiliary loss (zero-valued; hooks gradient into alpha_src)
-        aux_loss = ds.opacity_aux_loss(
-            color.detach(), batch_gt_rgb, rast_out, V_clip, F,
-            level=Rmax, alpha_src=alpha_acc,
-        )
-        color = ds.edge_grad(color, rast_out, V_clip, F)
-        l1_loss = (batch_gt_rgb - color).abs().mean()
-        ssim_loss = 0.5 * (1 - ssim(
-            batch_gt_rgb.permute(0, 3, 1, 2), color.permute(0, 3, 1, 2), data_range=1.0,
-        ))
+        if train_masks is not None:
+            bm = train_masks[batch_idx]
+            aux_loss = ds.opacity_aux_loss(
+                color.detach() * bm, batch_gt_rgb * bm, rast_out, V_clip, F,
+                level=Rmax, alpha_src=alpha_acc,
+            )
+            color = ds.edge_grad(color, rast_out, V_clip, F)
+            l1_loss = ((batch_gt_rgb - color).abs() * bm).sum() / (bm.sum() * 3).clamp(min=1.0)
+            ssim_loss = 0.5 * (1 - ssim(
+                (batch_gt_rgb * bm).permute(0, 3, 1, 2), (color * bm).permute(0, 3, 1, 2), data_range=1.0,
+            ))
+        else:
+            aux_loss = ds.opacity_aux_loss(
+                color.detach(), batch_gt_rgb, rast_out, V_clip, F,
+                level=Rmax, alpha_src=alpha_acc,
+            )
+            color = ds.edge_grad(color, rast_out, V_clip, F)
+            l1_loss = (batch_gt_rgb - color).abs().mean()
+            ssim_loss = 0.5 * (1 - ssim(
+                batch_gt_rgb.permute(0, 3, 1, 2), color.permute(0, 3, 1, 2), data_range=1.0,
+            ))
         loss = aux_loss + 0.8 * l1_loss + 0.2 * ssim_loss
+
+        if nbr_idx is not None:
+            n = face_normals(V_single, F)
+            cos = (n[nbr_idx] * n.unsqueeze(1)).sum(dim=-1)
+            loss = loss + reg_normal * (1.0 - cos.abs()).mean()
 
         optimizer_soup.zero_grad(set_to_none=True)
         optimizer_vert.zero_grad(set_to_none=True)
@@ -338,6 +428,9 @@ def main(
                     alpha_src = ds.expand_by_index(alpha_src, face_map)
 
             print(f"  [resample] verts={V_single.shape[0]:,}  faces={F.shape[0]:,}")
+
+            if reg_normal > 0:
+                nbr_idx = build_face_knn(V_single, F, reg_knn)
 
             V_single.requires_grad = True
             feat_src.requires_grad = True
@@ -408,10 +501,15 @@ def main(
         "flip_z": flip_z,
         "steps": steps,
         "losses": losses,
-        "seed": SEED,
+        "seed": seed,
         "init": init,
         "init_npz": init_npz,
         "max_faces": max_faces,
+        "reg_normal": reg_normal,
+        "reg_knn": reg_knn,
+        "masks": masks,
+        "crop_center": list(crop_center) if crop_center is not None else None,
+        "crop_radius": crop_radius,
     }, ckpt_path)
     print(f"[save] checkpoint → {ckpt_path}")
 
@@ -426,6 +524,7 @@ def main(
     out_dir_test = os.path.join(out_dir, "test_views")
     os.makedirs(out_dir_test, exist_ok=True)
 
+    test_masks = load_view_masks(masks, test_frames, device) if masks else None
     psnrs, ssims = [], []
 
     with torch.no_grad():
@@ -452,10 +551,18 @@ def main(
             pred_lin = color.squeeze(0).clamp(0, 1)
             gt_lin = fr["image"].clamp(0, 1)
 
-            psnrs.append(float(psnr_fn(pred_lin, gt_lin).item()))
-            pred_nchw = pred_lin.permute(2, 0, 1).unsqueeze(0)
-            gt_nchw = gt_lin.permute(2, 0, 1).unsqueeze(0)
-            ssims.append(float(ssim(gt_nchw, pred_nchw, data_range=1.0).item()))
+            if test_masks is not None:
+                tm = test_masks[i]
+                psnrs.append(masked_psnr(pred_lin, gt_lin, tm))
+                pc, gc = mask_bbox_crop(pred_lin, gt_lin, tm)
+                ssims.append(float(ssim(
+                    gc.permute(2, 0, 1).unsqueeze(0), pc.permute(2, 0, 1).unsqueeze(0), data_range=1.0,
+                ).item()))
+            else:
+                psnrs.append(float(psnr_fn(pred_lin, gt_lin).item()))
+                pred_nchw = pred_lin.permute(2, 0, 1).unsqueeze(0)
+                gt_nchw = gt_lin.permute(2, 0, 1).unsqueeze(0)
+                ssims.append(float(ssim(gt_nchw, pred_nchw, data_range=1.0).item()))
 
             stem = os.path.splitext(os.path.basename(fr["img_path"]))[0]
             iio.imwrite(
@@ -474,7 +581,8 @@ def main(
         print(f"[metrics] SSIM  {np.mean(ssims):.4f}")
 
         with open(os.path.join(out_dir_test, "metrics.txt"), "w") as f:
-            f.write(f"init={init} max_faces={max_faces} steps={steps} downscale={downscale}\n")
+            f.write(f"init={init} max_faces={max_faces} steps={steps} downscale={downscale} "
+                    f"seed={seed} reg_normal={reg_normal} masked={bool(masks)}\n")
             for i, (p, s) in enumerate(zip(psnrs, ssims)):
                 f.write(f"{i:04d} PSNR={p:.3f} SSIM={s:.4f}\n")
             f.write(f"\nmean PSNR={np.mean(psnrs):.3f} SSIM={np.mean(ssims):.4f}\n")
@@ -495,6 +603,16 @@ if __name__ == "__main__":
                         help="Seeds from src/curvature_init.py (required for --init curvature)")
     parser.add_argument("--max_faces", type=int, default=15_000,
                         help="Face budget enforced by the resampling step")
+    parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument("--reg_normal", type=float, default=0.0,
+                        help="Weight of the normal-consistency regularizer (0 = off)")
+    parser.add_argument("--reg_knn", type=int, default=4,
+                        help="Neighbours per face for the normal regularizer")
+    parser.add_argument("--masks", type=str, default=None,
+                        help="Mask folder from src/make_masks.py — train and score inside masks only")
+    parser.add_argument("--crop_center", type=float, nargs=3, default=None,
+                        help="Sphere-crop points3D for random init (pair with --masks)")
+    parser.add_argument("--crop_radius", type=float, default=None)
     args = parser.parse_args()
 
     main(
@@ -507,4 +625,10 @@ if __name__ == "__main__":
         init=args.init,
         init_npz=args.init_npz,
         max_faces=args.max_faces,
+        seed=args.seed,
+        reg_normal=args.reg_normal,
+        reg_knn=args.reg_knn,
+        masks=args.masks,
+        crop_center=args.crop_center,
+        crop_radius=args.crop_radius,
     )
