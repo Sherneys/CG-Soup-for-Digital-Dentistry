@@ -9,6 +9,9 @@ data/buddha/
 # Large COLMAP workspaces (regenerate: python src/sfm_pipeline.py)
 output/*_sfm/
 
+# DiffSoup training runs (regenerate: python src/diffsoup_train.py; keep metrics in reports)
+output/diffsoup_*/
+
 # OS
 .DS_Store
 
