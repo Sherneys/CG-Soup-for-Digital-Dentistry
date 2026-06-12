@@ -29,13 +29,20 @@
 
 ---
 
-## สถานะตอนนี้ (Sprint S1: 8–21 มิ.ย.) — ✅ ปิดแล้ว 12 มิ.ย.
+## ⚠️ Marker Protocol (บังคับทุก Session)
 
 1. **ติด Fiducial Dot Markers** บนฟันบน + ล่าง
 2. **Intraoral Scan WITH Markers** (SHINING 3D) → STL/OBJ มีตำแหน่ง Marker
 3. **ตรวจสอบ** ว่า Marker ปรากฏครบใน STL/OBJ → ถ้าขาดต้องสแกนใหม่
 4. **iPhone TrueDepth** บันทึกการเคลื่อนไหวขากรรไกร
 5. **ถอด Marker** ได้หลังจาก ข้อ 2–4 ยืนยันสำเร็จแล้วเท่านั้น
+
+> 🔴 ข้อมูลจากคลินิกวันแรก: ตรวจสอบว่า Intraoral Scan มี Marker ติดอยู่ขณะสแกนหรือไม่
+> ถ้าไม่มี → ต้องนัดสแกนใหม่ก่อนเริ่ม Sprint S4
+
+---
+
+## สถานะตอนนี้ (Sprint S1: 8–21 มิ.ย.) — ✅ ปิดแล้ว 12 มิ.ย.
 
 > **ตัดสินใจ 12 มิ.ย.:** S1 ปิดโดยใช้ **buddha dataset แทนหน้าคนจริงไปก่อน** — pipeline/โมดูลครบและ verify ผ่านหมดแล้ว การรันซ้ำกับภาพหน้าจริง (ชุด A) เป็นงานติดตามผลเมื่อได้ข้อมูล **ไม่ block S2/S3** (ทุกโมดูลรับ input ผ่าน argument อยู่แล้ว เสียบชุด A ได้ทันทีโดยไม่ต้องแก้โค้ด)
 
@@ -86,7 +93,7 @@
 | ~~S1~~ | W2–3 (ถึง 21 มิ.ย.) | ~~Curvature analysis + QEM บน mesh~~ | ✅ ปิดแล้ว 12 มิ.ย. — verify บน buddha (ตัวแทนหน้าจริง) + mesh สาธารณะ 2 ชุด |
 | S2 🏃 ล้ำแผน | W4–5 | Curvature-guided init + ต่อ DiffSoup pipeline | โมเดลหน้า CG-Soup <5,000 สามเหลี่ยม — **โค้ดเสร็จแล้ว 12 มิ.ย. (W2)** เหลือรัน E2E + ลด budget |
 | S3 | W6 | Regularization loss + วัด PSNR/SSIM/LPIPS เทียบ DiffSoup baseline | รายงานผลโมเดล 3D — baseline ฝั่ง random กำลังรันอยู่ |
-| S4 | W7–8 | Jaw tracking 6DOF (TrueDepth + FreeMoCap) + scale calibration | สคริปต์ motion + ผล calibrate |
+| S4 | W7–8 | Jaw tracking 6DOF: Marker Detection + 3D Localization + Scale Verify (TrueDepth) | สคริปต์ตรวจจับ Marker + ผล Scale |
 | S5 | W9–10 | Registration: motion ↔ โมเดลหน้า ↔ intraoral scan (Zero Jaw Position กับ Team 1) | โค้ด transformation matrix |
 | S6 | W11 | Exporter CI-TRANSFORM (JSON/XML) → API Team 1 / Exocad | การเชื่อมต่อสำเร็จ |
 | S7 | W12–13 | ทดสอบอาสาสมัคร ≥10 คน: RMSE ≤ 0.5 มม., ≥ 30 fps | รายงานเปรียบเทียบความแม่นยำ |
