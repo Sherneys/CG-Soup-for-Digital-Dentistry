@@ -51,6 +51,8 @@
 | `src/curvature_density.py` — principal curvatures + QEM + density map | ✅ เสร็จ (11 มิ.ย.) |
 | Verify density map บน max-planck + igea (จมูก/ปาก/หู = ร้อน) | ✅ ผ่าน |
 | แจ้งขอบเขต "ใบหน้า ไม่ใช่ฟัน" → อาจารย์ + Team 1 | 📝 ร่างพร้อม (ดู `docs/แจ้งขอบเขตใหม่_อาจารย์-Team1.md`) — **ยังไม่ส่ง** |
+| **Track B (คู่ขนาน):** โค้ด S4–S5 ครบ 5 โมดูล (`marker_detector`, `marker_localizer`, `scale_verify`, `jaw_tracker`, `registration`) | ✅ เสร็จ (12 มิ.ย.) — unit test 28 ตัวผ่านด้วยข้อมูลสังเคราะห์ |
+| รัน Track B กับข้อมูลจริง (Intraoral Scan WITH Markers + วิดีโอ TrueDepth) | ⬜ รอเก็บข้อมูลจากคลินิก |
 | ถ่ายภาพหน้า multi-view ≥ 40 มุม (ข้อมูลจริง) | ⬜ ยังไม่ได้ทำ |
 | รัน COLMAP บนภาพหน้าจริง | ⬜ รอภาพก่อน |
 | Verify density map บน mesh หน้าจริง | ⬜ รอ COLMAP |
@@ -88,8 +90,8 @@
 | **S1** | **W2–3 8–21 มิ.ย.** | **Curvature Analysis บน mesh หน้า** | **โมดูล + Density Map (จมูก/ปาก/หูร้อน)** | **⬤ กำลังทำ** |
 | S2 | W4–5 22 มิ.ย.–5 ก.ค. | CG-Soup Initialization + ต่อ DiffSoup | โมเดลหน้า CG-Soup < 5,000 สามเหลี่ยม | ⬜ |
 | S3 | W6 6–12 ก.ค. | Regularization + วัด PSNR/SSIM/LPIPS | รายงานผลโมเดล 3D | ⬜ |
-| S4 | W7–8 13–26 ก.ค. | Marker Detection + 3D Localization + Scale Verify | สคริปต์ตรวจจับ Marker + ผล Scale | ⬜ |
-| S5 | W9–10 27 ก.ค.–9 ส.ค. | 6DOF Rigid Body + Registration (Dental Frame) | โค้ด Transformation Matrix | ⬜ |
+| S4 | W7–8 13–26 ก.ค. | Marker Detection + 3D Localization + Scale Verify | สคริปต์ตรวจจับ Marker + ผล Scale | 🟡 โค้ดเสร็จก่อนกำหนด (12 มิ.ย.) — รอข้อมูลคลินิก |
+| S5 | W9–10 27 ก.ค.–9 ส.ค. | 6DOF Rigid Body + Registration (Dental Frame) | โค้ด Transformation Matrix | 🟡 โค้ดเสร็จก่อนกำหนด (12 มิ.ย.) — รอข้อมูลคลินิก |
 | S6 | W11 10–16 ส.ค. | CI-TRANSFORM Exporter + API Team 1 / Exocad | ส่งออก CI-TRANSFORM สำเร็จ | ⬜ |
 | S7 | W12–13 17–30 ส.ค. | ทดสอบอาสาสมัคร ≥ 10 คน: RMSE ≤ 0.5 มม., ≥ 30 fps | รายงานความแม่นยำ | ⬜ |
 | S8 | W14 31 ส.ค.–6 ก.ย. | Performance tuning + รายงาน + demo | ส่งมอบครบ | ⬜ |

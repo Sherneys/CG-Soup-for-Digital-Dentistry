@@ -13,7 +13,9 @@
       "Bash(python3 -c \"import numpy, scipy, trimesh, open3d\")",
       "Bash(~/miniconda3/envs/dent/bin/python -c ' *)",
       "Bash(time ~/miniconda3/envs/dent/bin/python *)",
-      "Bash(~/miniconda3/envs/dent/bin/python *)"
+      "Bash(~/miniconda3/envs/dent/bin/python *)",
+      "Bash(/opt/miniconda3/envs/dent/bin/python -m pytest tests/ -v)",
+      "Bash(/opt/miniconda3/envs/dent/bin/python jaw_tracker.py ../output/synthetic/dental_markers.json ../output/synthetic/points3d.json --auto-label --out ../output/synthetic/jaw_motion.json)"
     ]
   }
 }

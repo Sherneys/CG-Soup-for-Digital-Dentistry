@@ -1,0 +1,17 @@
+# S1 — curvature_density.py (Track A: Curvature Analysis + Density Map)
+# Python 3.11 recommended.  conda create -n dent python=3.11 -y && pip install -r requirements.txt
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+trimesh>=4.0
+
+# S4–S5 — Track B (JawTrack: marker detection → 6DOF)
+opencv-python>=4.8
+
+# Dev / testing
+pytest>=8.0
+
+# S2+ (DiffSoup / COLMAP pipeline) — uncomment when starting Sprint S2:
+# torch>=2.1
+# torchvision>=0.16
+# open3d>=0.18

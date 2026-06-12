@@ -42,11 +42,11 @@
 │   ├── colmap_runner.py         [S2]   SfM wrapper
 │   ├── cg_soup_init.py          [S2]   Triangle Soup initialization
 │   ├── diffsoup_pipeline.py     [S2]   DiffSoup optimization
-│   ├── marker_detector.py       [S4]   Detect markers in RGB frames
-│   ├── marker_localizer.py      [S4]   Back-project to 3D via TrueDepth
-│   ├── scale_verify.py          [S4]   Verify inter-marker distances ±0.1mm
-│   ├── jaw_tracker.py           [S5]   SVD 6DOF per frame
-│   ├── registration.py          [S5]   Align to dental coordinate frame
+│   ├── marker_detector.py       [S4 ✅ code] Detect markers in RGB frames
+│   ├── marker_localizer.py      [S4 ✅ code] Back-project to 3D via TrueDepth
+│   ├── scale_verify.py          [S4 ✅ code] Verify inter-marker distances ±0.1mm
+│   ├── jaw_tracker.py           [S5 ✅ code] SVD 6DOF per frame
+│   ├── registration.py          [S5 ✅ code] Align to dental coordinate frame
 │   └── ci_transform_export.py   [S6]   CI-TRANSFORM JSON/XML export
 ├── data/
 │   ├── max-planck.obj           Demo mesh (S1 testing)
@@ -80,6 +80,41 @@ python src/curvature_density.py data/max-planck.obj --out-dir output/
 # Expected: nose/lips/ears/eye rims = hot (red), cheeks/forehead = cool (blue)
 ```
 
+### Track B — JawTrack Pipeline (code ✅, รอข้อมูลคลินิก)
+
+โค้ดทุกโมดูลเสร็จและผ่าน unit test ด้วยข้อมูลสังเคราะห์แล้ว (Track B ทำคู่ขนานกับ Track A)
+เมื่อได้ข้อมูลจริงจากคลินิก รันตามลำดับ:
+
+```bash
+pip install -r requirements.txt   # เพิ่ม opencv-python + pytest แล้ว
+
+# B3a: ตรวจจับ marker จากวิดีโอ iPhone (จุดน้ำเงิน = ฟันบน, จุดเขียว = ฟันล่าง — ปรับ HSV ได้ผ่าน --config)
+python src/marker_detector.py jaw_motion.mp4 --out output/detections.json
+
+# B3b: Back-project 2D → 3D ด้วย depth map (.npy หน่วยเมตร) + intrinsics จาก ARKit
+python src/marker_localizer.py output/detections.json intrinsics.json \
+    --depth-dir data/session01/depth --rgb-size 1920 1440 --out output/points3d.json
+
+# B4: ตรวจ scale เทียบ Intraoral Scan (ต้องผ่าน ±0.1 mm ก่อนไปต่อ — exit code 1 ถ้าไม่ผ่าน)
+python src/scale_verify.py dental_markers.json output/points3d.json
+
+# B5: 6DOF ต่อ frame (--auto-label จับคู่ marker id อัตโนมัติจากระยะห่างระหว่าง marker)
+python src/jaw_tracker.py dental_markers.json output/points3d.json \
+    --auto-label --out output/jaw_motion.json
+
+# S5: Registration เข้า dental frame (รองรับ transform mesh ด้วย)
+python src/registration.py landmarks_cam.json landmarks_dental.json --out output/transform.json
+```
+
+`dental_markers.json` = ตำแหน่ง marker จาก Intraoral Scan (หน่วย mm):
+`{"upper": {"U1": [x,y,z], ...}, "lower": {"L1": [x,y,z], ...}}`
+
+### Run Tests (Track B — ไม่ต้องใช้ข้อมูลคลินิก)
+
+```bash
+pytest tests/ -v   # 28 tests: synthetic ground-truth (รวม hinge-motion end-to-end, RMSE ≤ 0.5 mm)
+```
+
 ### COLMAP (Track A — S2)
 
 ```bash
@@ -100,8 +135,8 @@ colmap automatic_reconstructor --workspace_path output/colmap/ --image_path data
 | S1 | W2–3 | Curvature Module (κ₁,κ₂ + QEM + Density Map) | ✅ Done |
 | S2 | W4–5 | CG-Soup Init + DiffSoup Pipeline | 🔲 |
 | S3 | W6 | Regularization + Metrics (PSNR/SSIM/LPIPS) | 🔲 |
-| S4 | W7–8 | Marker Detection + 3D Localization + Scale Verify | 🔲 |
-| S5 | W9–10 | SVD 6DOF + Registration | 🔲 |
+| S4 | W7–8 | Marker Detection + 3D Localization + Scale Verify | 🟡 Code ✅ (12 มิ.ย. — รอข้อมูลคลินิก) |
+| S5 | W9–10 | SVD 6DOF + Registration | 🟡 Code ✅ (12 มิ.ย. — รอข้อมูลคลินิก) |
 | S6 | W11 | CI-TRANSFORM Export + Team 1 API + PDPA | 🔲 |
 | S7 | W12–13 | User Testing (≥10 volunteers) | 🔲 |
 | S8 | W14 | Performance Tuning + Final Demo | 🔲 |
